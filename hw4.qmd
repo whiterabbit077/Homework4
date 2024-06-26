@@ -1,0 +1,340 @@
+---
+title: "Homework 4"
+author: "Anna Giczewska"
+format: html
+editor: visual
+---
+
+## Task 1: Conceptual Questions
+
+``` markdown
+1. What is the purpose of the lapply() function? What is the equivalent purrr function??
+>  The lapply() function in R is used to apply a function to each element of a list (or vector) and return a list of the same length. The equivalent function in the purrr package is map(). The map() function applies a function to each element of a list (or vector) and returns a list.
+
+2. Suppose we have a list called my_list. Each element of the list is a numeric data frame (all columns are numeric). We want use lapply() to run the code cor(numeric_matrix, method = "kendall") on each element of the list. Write code to do this below! (I’m really trying to ask you how you specify method = "kendall" when calling lapply())?
+> lapply(X = my_list, FUN = cor, method = "kendall") 
+
+3. What are two advantages of using purrr functions instead of the BaseR apply family?
+> The advantage of purrr is much greater consistency between the functions. Purrr also fills in some handy map variants that are absent from base R.
+
+4. What is a side-effect function?
+> Side-effect function is a function that doesn't change the data it just try to produce something, like for example: print(), plot(), write_csv(). 
+
+5. Why can you name a variable sd in a function and not cause any issues with the sd function?
+> When you call a function, it creates temporary function environments. This is why variables in functions don't exist outside the function (in a global envionment)
+```
+
+## Task 2 - Writing R Functions
+
+### Root Mean Square Error (RMSE)
+
+Create some response values and predictions:
+
+```{r}
+set.seed(10)
+n <- 100
+x <- runif(n)
+resp <- 3 + 10*x + rnorm(n)
+resp
+pred <- predict(lm(resp ~ x), data.frame(x))
+pred
+```
+
+Write a function:
+
+```{r}
+getRMSE <- function(response, prediction, ...) {
+  if (length(response) != length(prediction)) {
+    stop("The length of the response and prediction vectors is not the same.")
+  }
+  mse <- mean((response - prediction)^2, ...)
+  rmse <- sqrt(mse)
+  
+  return(rmse)
+}
+```
+
+Test my function:
+
+```{r}
+# Calculate RMSE
+rmse_value <- getRMSE(resp, pred)
+print(rmse_value)
+```
+
+Add NA values:
+
+```{r}
+resp[c(3, 10)] <- NA_real_
+resp
+```
+
+Test function with NAs:
+
+```{r}
+# Attempt to calculate RMSE without specifying NA removal
+rmse_with_na <- getRMSE(resp, pred)
+print(rmse_with_na)
+
+# Calculate RMSE with NA removal
+rmse_with_na_rm <- getRMSE(resp, pred, na.rm = TRUE)
+print(rmse_with_na_rm)
+
+```
+
+### Mean Absolute Deviation (MAD)
+
+Create some response values and predictions
+
+```{r}
+set.seed(10)
+n <- 100
+x <- runif(n)
+resp <- 3 + 10*x + rnorm(n)
+pred <- predict(lm(resp ~ x), data.frame(x))
+
+```
+
+Write a function:
+
+```{r}
+getMAD <- function(response, prediction, ...) {
+  if (length(response) != length(prediction)) {
+    stop("The length of the response and prediction vectors is not the same.")
+  }
+  mad <- mean(abs(response - prediction), ...)
+  return(mad)
+}
+```
+
+Test my function:
+
+```{r}
+# Calculate MAD without NA values
+mad_value <- getMAD(resp, pred)
+print(mad_value)
+```
+
+Add NA values:
+
+```{r}
+resp[c(3, 10)] <- NA_real_
+resp
+```
+
+Test function with NAs:
+
+```{r}
+# Calculate MAD without specifying NA removal
+mad_with_na <- getMAD(resp, pred)
+print(mad_with_na)
+
+# Calculate MAD with NA removal
+mad_with_na_rm <- getMAD(resp, pred, na.rm = TRUE)
+print(mad_with_na_rm)
+```
+
+### My wrapper
+
+Create my wrapper: 
+
+```{r}
+# Wrapper function
+mywrapper <- function(response, prediction, metrics = c("RMSE", "MAD"), ...) {
+  # Check that both inputs are numeric, atomic vectors
+  if (!(is.vector(response) && is.atomic(response) && is.numeric(response))) {
+    stop("Response must be a numeric, atomic vector.")
+  }
+  if (!(is.vector(prediction) && is.atomic(prediction) && is.numeric(prediction))) {
+    stop("Prediction must be a numeric, atomic vector.")
+  }
+  
+  results <- list()
+  
+  # Calculate requested metrics
+  if ("RMSE" %in% metrics) {
+    results$RMSE <- getRMSE(response, prediction, ...)
+  }
+  
+  if ("MAD" %in% metrics) {
+    results$MAD <- getMAD(response, prediction, ...)
+  }
+  
+  return(results)
+}
+
+```
+
+Test new function using data generated below. Call it once asking for each metric individually and once specifying both metrics.
+
+```{r}
+n <- 100
+x <- runif(n)
+resp <- 3 + 10*x + rnorm(n)
+pred <- predict(lm(resp ~ x), data.frame(x))
+
+
+mywrapper(resp, pred, metrics = c("RMSE"))
+mywrapper(resp, pred, metrics = c("MAD"))
+mywrapper(resp, pred, metrics = c("RMSE", "MAD"))
+
+```
+
+Repeat with replacing two of the response values with missing values (NA_real_).
+
+```{r}
+resp[c(3, 10)] <- NA_real_
+resp
+
+# Calculate both RMSE and MAD with NA removal
+both_rmse_mad_na_rm <- mywrapper(resp, pred, na.rm = TRUE)
+print(both_rmse_mad_na_rm)
+
+both_rmse_mad<- mywrapper(resp, pred)
+print(both_rmse_mad)
+  
+# Calculate only RMSE
+only_rmse_na_rm <- mywrapper(resp, pred, metrics = "RMSE", na.rm = TRUE)
+print(only_rmse_na_rm)
+
+only_rmse<- mywrapper(resp, pred, metrics = "RMSE")
+print(only_rmse)
+
+# Calculate only MAD
+only_mad_na_rm <- mywrapper(resp, pred, metrics = "MAD", na.rm = TRUE)
+print(only_mad_na_rm)
+
+only_mad <- mywrapper(resp, pred, metrics = "MAD")
+print(only_mad)
+```
+
+Finally, test your function by passing it incorrect data (i.e. a data frame or something else instead of vectors)
+
+```{r}
+set.seed(10)
+
+# Testing with incorrect data types
+# 1. Passing a data frame instead of vectors
+incorrect_data <- data.frame(a = rnorm(10), b = rnorm(10))
+tryCatch({
+  mywrapper(incorrect_data, pred)
+}, error = function(e) {
+  print(e)
+})
+
+# 2. Passing a list instead of vectors
+incorrect_list <- list(a = rnorm(10), b = rnorm(10))
+tryCatch({
+  mywrapper(incorrect_list, pred)
+}, error = function(e) {
+  print(e)
+})
+
+# 3. Passing a character vector instead of numeric vectors
+incorrect_char <- as.character(rnorm(10))
+tryCatch({
+  mywrapper(incorrect_char, pred)
+}, error = function(e) {
+  print(e)
+})
+
+# 4. Passing a matrix instead of vectors
+incorrect_matrix <- matrix(rnorm(20), nrow = 10)
+tryCatch({
+  mywrapper(incorrect_matrix, pred)
+}, error = function(e) {
+  print(e)
+})
+
+```
+## Task 3 - Querying an API and a Tidy-Style Function
+
+```{r}
+#documentation: https://newsapi.org/docs/endpoints/everything
+
+#install and load needed packages
+#install.packages("httr")
+library(httr)
+#install.packages("jsonlite")
+library(jsonlite)
+
+library(tidyverse)
+
+#load API key
+api_key <- source("api_key.R")[[1]]
+
+URL_ids <- "https://newsapi.org/v2/everything"
+query_keyword <- "technology" 
+
+response_search <- httr::GET(URL_ids, query = list(q = query_keyword, apiKey = api_key))
+#str(response_search)
+#response_search
+
+# Check the status of the response
+if (status_code(response_search) == 200) {
+  data <- content(response_search, "text")
+  json_data <- jsonlite::fromJSON(data)
+  #print(json_data)
+  tech_info <- as_tibble(json_data$articles[, -1]) #since source has id and name I want to get rid of them
+  print(tech_info)
+} else {
+  print(paste("Error:", status_code(response_search)))
+}
+
+```
+
+
+Generate my own function:
+
+```{r}
+# Load required libraries
+library(httr)
+library(jsonlite)
+library(tibble)
+
+# Define the function
+query_news_api <- function(query_keyword, from_date, api_key) {
+  URL_ids <- "https://newsapi.org/v2/everything"
+  
+  # Make the GET request with the API key and query parameters
+  response_search <- httr::GET(
+    URL_ids, 
+    query = list(q = query_keyword, 
+                 from = from_date, 
+                 to="2024-06-26",  #assuming until today's date not Sys.Date()
+                 apiKey = api_key)
+    )
+  
+  # Check the status of the response
+  if (status_code(response_search) == 200) {
+    data <- content(response_search, "text")
+    json_data <- jsonlite::fromJSON(data)
+    
+    # Print total results
+    print(paste("Total results:", json_data$totalResults))
+    
+    # Convert the articles data to a tibble and remove the first column (source information)
+    tech_info <- as_tibble(json_data$articles[, -1]) 
+    return(tech_info)
+    
+  } else {
+    stop(paste("Error:", status_code(response_search)))
+  }
+}
+
+#needed variables
+api_key <- source("api_key.R")[[1]]
+query_keyword <- "technology"
+
+# Get the news articles
+from_date1 <- "2024-06-15"
+tech_info1 <- query_news_api(query_keyword, from_date1, api_key)
+print(tech_info1) #Seems like by default, the API returns a maximum of 100 articles per request only.
+
+# Get the news articles
+from_date2 <- "2024-06-23"
+tech_info2 <- query_news_api(query_keyword, from_date2, api_key)
+print(tech_info2) #Seems like by default, the API returns a maximum of 100 articles per request only.
+
+```
+
